@@ -34,9 +34,9 @@ func MustLoad() *Config {
 	//it is ok not to return error in config-loading state, where the app has not loaded yet
 
 	//get value from environment var of os
-	configPath := os.Getenv("CONFIG_PATH")
+	configPath := os.Getenv("CONFIG_PRETTYLINK_PATH")
 	if configPath == "" {
-		log.Fatal("CONFIG_PATH has not set")
+		log.Fatal("CONFIG_PRETTYLINK_PATH has not set")
 	}
 
 	//get file stat and if it is not exist, log fatal

@@ -1,8 +1,10 @@
 package sqlite
 
 import (
+	"PrettyLinkBackend/internal/storage"
 	"database/sql"
 	"fmt"
+	"github.com/mattn/go-sqlite3"
 )
 
 type Storage struct {
@@ -39,4 +41,30 @@ func New(storagePath string) (*Storage, error) {
 	}
 
 	return &Storage{db: db}, nil
+}
+
+func (s *Storage) SaveURL(urlToSave string, alias string) (int64, error) {
+	const operation = "storage.sqlite.SaveURL"
+
+	stmt, err := s.db.Prepare("INSERT INTO url(url, alias) VALUES(?, ?)")
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", operation, err)
+	}
+
+	res, err := stmt.Exec(urlToSave, alias)
+	if err != nil {
+		//check if the problem is that alias is already exists
+		if sqliteErr, ok := err.(sqlite3.Error); ok && sqliteErr.ExtendedCode == sqlite3.ErrConstraintUnique {
+			return 0, fmt.Errorf("%s: %w", operation, storage.ErrURLExists)
+		}
+
+		return 0, fmt.Errorf("%s: %w", operation, err)
+	}
+
+	id, err := res.LastInsertId()
+	if err != nil {
+		return 0, fmt.Errorf("%s: failed to get last insert id: %w", operation, err)
+	}
+
+	return id, nil
 }

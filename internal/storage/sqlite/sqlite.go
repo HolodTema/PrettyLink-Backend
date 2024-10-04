@@ -3,6 +3,7 @@ package sqlite
 import (
 	"PrettyLinkBackend/internal/storage"
 	"database/sql"
+	"errors"
 	"fmt"
 	"github.com/mattn/go-sqlite3"
 )
@@ -43,8 +44,8 @@ func New(storagePath string) (*Storage, error) {
 	return &Storage{db: db}, nil
 }
 
-func (s *Storage) SaveURL(urlToSave string, alias string) (int64, error) {
-	const operation = "storage.sqlite.SaveURL"
+func (s *Storage) Save(urlToSave string, alias string) (int64, error) {
+	const operation = "storage.sqlite.Save"
 
 	stmt, err := s.db.Prepare("INSERT INTO url(url, alias) VALUES(?, ?)")
 	if err != nil {
@@ -67,4 +68,41 @@ func (s *Storage) SaveURL(urlToSave string, alias string) (int64, error) {
 	}
 
 	return id, nil
+}
+
+func (s *Storage) GetUrl(alias string) (string, error) {
+	const operation = "storage.sqlite.GetUrl"
+
+	stmt, err := s.db.Prepare("SELECT url FROM url WHERE alias = ?")
+	if err != nil {
+		return "", fmt.Errorf("%s: %w", operation, err)
+	}
+
+	var resUrl string
+	err = stmt.QueryRow(alias).Scan(&resUrl)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", storage.ErrURLNotFound
+	}
+	if err != nil {
+		return "", fmt.Errorf("%s: %w", operation, err)
+	}
+	return resUrl, nil
+}
+
+func (s *Storage) DeleteUrl(alias string) error {
+	const operation = "storage.sqlite.DeleteUrl"
+
+	stmt, err := s.db.Prepare("DELETE FROM url WHERE alias = ?")
+	if err != nil {
+		return fmt.Errorf("%s: %w", operation, err)
+	}
+
+	_, err = stmt.Exec(alias)
+	if err != nil {
+		var sqliteErr sqlite3.Error
+		if errors.As(err, &sqliteErr) && errors.Is(sqliteErr.ExtendedCode, sqlite3.ErrIoErrDelete) {
+			return fmt.Errorf("%s: %w", operation, storage.ErrURLNotFound)
+		}
+	}
+	return nil
 }
